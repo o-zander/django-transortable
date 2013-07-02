@@ -1,0 +1,6 @@
+{% load adminsortable_tags %}
+
+<form>
+    <input name="pk" type="hidden" value="{{ object.pk }}" />
+</form>
+<a href="../sorting/do-sorting/{{ object.model_type_id }}/" class="admin_sorting_url">{{ object }}</a>
