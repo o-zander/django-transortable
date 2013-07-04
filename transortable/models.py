@@ -1,14 +1,18 @@
+import sys
+
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured
 from django.conf import settings
 from django.db import models
 from django.db.models.base import ModelBase
 from django.db.models.signals import post_save
 from django.utils.translation import get_language
-from hvad.descriptors import LanguageCodeAttribute, TranslatedAttribute
-from hvad.manager import TranslationManager, TranslationsModelManager
-from hvad.utils import SmartGetFieldByName
 from types import MethodType
-import sys
+
+from .descriptors import LanguageCodeAttribute, TranslatedAttribute
+from .fields import SortableForeignKey
+from .manager import TranslationManager, TranslationsModelManager
+from .utils import SmartGetFieldByName
 
 
 def create_translations_model(model, related_name, meta, **fields):
@@ -19,12 +23,12 @@ def create_translations_model(model, related_name, meta, **fields):
     'meta' is a (optional) dictionary of attributes for the translations model's
     inner Meta class.
     'fields' is a dictionary of fields to put on the translations model.
-    
+
     Two fields are enforced on the translations model:
-    
+
         language_code: A 15 char, db indexed field.
         master: A ForeignKey back to the shared model.
-        
+
     Those two fields are unique together, this get's enforced in the inner Meta
     class of the translations table
     """
@@ -32,7 +36,7 @@ def create_translations_model(model, related_name, meta, **fields):
         meta = {}
     unique = [('language_code', 'master')]
     meta['unique_together'] = list(meta.get('unique_together', [])) + unique
-    # Create inner Meta class 
+    # Create inner Meta class
     Meta = type('Meta', (object,), meta)
     if not hasattr(Meta, 'db_table'):
         Meta.db_table = model._meta.db_table + '%stranslation' % getattr(settings, 'NANI_TABLE_NAME_SEPARATOR', '_')
@@ -65,6 +69,18 @@ def create_translations_model(model, related_name, meta, **fields):
     return translations_model
 
 
+class MultipleSortableForeignKeyException(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
+
+class NoTranslation(object):
+    pass
+
+
 class TranslatedFields(object):
     """
     Wrapper class to define translated fields on a model.
@@ -87,10 +103,10 @@ class BaseTranslationModel(models.Model):
     """
     def __init__(self, *args, **kwargs):
         super(BaseTranslationModel, self).__init__(*args, **kwargs)
-        
+
     class Meta:
         abstract = True
-        
+
 
 class TranslatableModelBase(ModelBase):
     """
@@ -110,10 +126,10 @@ class TranslatableModelBase(ModelBase):
                 "TranslationManager instance or an instance of a subclass of "
                 "TranslationManager, the default manager of %r is not." %
                 new_model)
-        
+
         if opts.abstract:
             return new_model
-        
+
         concrete_model = new_model
 
         # Check if it's a proxy model
@@ -140,8 +156,7 @@ class TranslatableModelBase(ModelBase):
                     raise ImproperlyConfigured(
                         "A TranslatableModel can only define one set of "
                         "TranslatedFields, %r defines more than one: %r to %r "
-                        "and %r to %r and possibly more" % (new_model, obj,
-                        obj.related.model, found, found.related.model))
+                        "and %r to %r and possibly more" % (new_model, obj, obj.related.model, found, found.related.model))
                 else:
                     new_model.contribute_translations(obj.related)
                     found = obj
@@ -151,42 +166,39 @@ class TranslatableModelBase(ModelBase):
                 "No TranslatedFields found on %r, subclasses of "
                 "TranslatableModel must define TranslatedFields." % new_model
             )
-        
+
         post_save.connect(new_model.save_translations, sender=new_model, weak=False)
-        
+
         if not isinstance(opts.get_field_by_name, SmartGetFieldByName):
             smart_get_field_by_name = SmartGetFieldByName(opts.get_field_by_name)
-            opts.get_field_by_name = MethodType(smart_get_field_by_name , opts,
-                                                opts.__class__)
-        
+            opts.get_field_by_name = MethodType(smart_get_field_by_name, opts, opts.__class__)
+
         return new_model
-    
 
-class NoTranslation(object):
-    pass
 
-class TranslatableModel(models.Model):
+class TransortableModel(models.Model):
     """
     Base model for all models supporting translated fields (via TranslatedFields).
     """
     __metaclass__ = TranslatableModelBase
-    
+
+    order = models.PositiveIntegerField(editable=False, default=1, db_index=True)
+    is_sortable = False
+
     # change the default manager to the translation manager
     objects = TranslationManager()
-    
+
     class Meta:
         abstract = True
-    
+        ordering = ['order']
+
     def __init__(self, *args, **kwargs):
-        tkwargs = {} # translated fields
-        skwargs = {} # shared fields
-        
+        tkwargs = {}  # translated fields
+        skwargs = {}  # shared fields
+
         if 'master' in kwargs.keys():
-            raise RuntimeError(
-                    "Cannot init  %s class with a 'master' argument" % \
-                    self.__class__.__name__
-            )
-        
+            raise RuntimeError("Cannot init  %s class with a 'master' argument" % self.__class__.__name__)
+
         # filter out all the translated fields (including 'master' and 'language_code')
         primary_key_names = ('pk', self._meta.pk.name)
         for key in kwargs.keys():
@@ -197,29 +209,35 @@ class TranslatableModel(models.Model):
         if not tkwargs.keys():
             # if there where no translated options, then we assume this is a
             # regular init and don't want to do any funky stuff
-            super(TranslatableModel, self).__init__(*args, **kwargs)
+            super(TransortableModel, self).__init__(*args, **kwargs)
+            self.validate_foreign_keys()
             return
-        
-        # there was at least one of the translated fields (or a language_code) 
+
+        # there was at least one of the translated fields (or a language_code)
         # in kwargs. We need to do magic.
         # extract all the shared fields (including the pk)
         for key in kwargs.keys():
             if key in self._shared_field_names:
                 skwargs[key] = kwargs.pop(key)
-        # do the regular init minus the translated fields
-        super(TranslatableModel, self).__init__(*args, **skwargs)
+                # do the regular init minus the translated fields
+        super(TransortableModel, self).__init__(*args, **skwargs)
+        self.validate_foreign_keys()
         # prepopulate the translations model cache with an translation model
         tkwargs['language_code'] = tkwargs.get('language_code', get_language())
         tkwargs['master'] = self
         translated = self._meta.translations_model(*args, **tkwargs)
         setattr(self, self._meta.translations_cache, translated)
-    
+
+    @classmethod
+    def model_type_id(cls):
+        return ContentType.objects.get_for_model(cls).id
+
     @classmethod
     def contribute_translations(cls, rel):
         """
         Contribute translations options to the inner Meta class and set the
         descriptors.
-        
+
         This get's called from TranslatableModelBase.__new__
         """
         opts = cls._meta
@@ -227,7 +245,7 @@ class TranslatableModel(models.Model):
         opts.translations_model = rel.model
         opts.translations_cache = '%s_cache' % rel.get_accessor_name()
         trans_opts = opts.translations_model._meta
-        
+
         # Set descriptors
         ignore_fields = [
             'pk',
@@ -242,7 +260,7 @@ class TranslatableModel(models.Model):
             else:
                 attr = TranslatedAttribute(opts, field.name)
             setattr(cls, field.name, attr)
-    
+
     @classmethod
     def save_translations(cls, instance, **kwargs):
         """
@@ -254,13 +272,31 @@ class TranslatableModel(models.Model):
             if not trans.master_id:
                 trans.master = instance
             trans.save()
-    
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            try:
+                self.order = self.__class__.objects.aggregate(models.Max('order'))['order__max'] + 1
+            except (TypeError, IndexError):
+                pass
+        return super(TransortableModel, self).save(*args, **kwargs)
+
+    def validate_foreign_keys(self):
+        # Validate that model only contains at most one SortableForeignKey
+        sortable_foreign_keys = []
+        for field in self._meta.fields:
+            if isinstance(field, SortableForeignKey):
+                sortable_foreign_keys.append(field)
+        if len(sortable_foreign_keys) > 1:
+            raise MultipleSortableForeignKeyException(
+                u'%s may only have one SortableForeignKey' % self)
+
     def translate(self, language_code):
         """
         Returns an Model instance in the specified language.
         Does NOT check if the translation already exists!
         Does NOT interact with the database.
-        
+
         This will refresh the translations cache attribute on the instance.
         """
         tkwargs = {
@@ -270,7 +306,7 @@ class TranslatableModel(models.Model):
         translated = self._meta.translations_model(**tkwargs)
         setattr(self, self._meta.translations_cache, translated)
         return self
-    
+
     def safe_translation_getter(self, name, default=None):
         cache = getattr(self, self._meta.translations_cache, None)
         if not cache:
@@ -321,81 +357,21 @@ class TranslatableModel(models.Model):
     def get_available_languages(self):
         manager = self._meta.translations_model.objects
         return manager.filter(master=self).values_list('language_code', flat=True)
-    
+
     #===========================================================================
     # Internals
     #===========================================================================
-    
+
     @property
     def _shared_field_names(self):
         if getattr(self, '_shared_field_names_cache', None) is None:
             self._shared_field_names_cache = self._meta.get_all_field_names()
         return self._shared_field_names_cache
+
     @property
     def _translated_field_names(self):
         if getattr(self, '_translated_field_names_cache', None) is None:
             self._translated_field_names_cache = self._meta.translations_model._meta.get_all_field_names()
         return self._translated_field_names_cache
 
-
-class MultipleSortableForeignKeyException(Exception):
-    def __init__(self, value):
-        self.value = value
-
-    def __str__(self):
-        return repr(self.value)
-
-
-class Sortable(models.Model):
-    """
-    Unfortunately, Django doesn't support using more than one AutoField
-    in a model or this class could be simplified.
-
-    `is_sortable` determines whether or not the Model is sortable by
-    determining if the last value of `order` is greater than the default
-    of 1, which should be present if there is only one object.
-
-    `model_type_id` returns the ContentType.id for the Model that
-    inherits Sortable
-
-    `save` the override of save increments the last/highest value of
-    order by 1
-    """
-
-    order = models.PositiveIntegerField(editable=False, default=1,
-                                        db_index=True)
-    is_sortable = False
-
-    # legacy support
-    sortable_by = None
-
-    class Meta:
-        abstract = True
-        ordering = ['order']
-
-    @classmethod
-    def model_type_id(cls):
-        return ContentType.objects.get_for_model(cls).id
-
-    def __init__(self, *args, **kwargs):
-        super(Sortable, self).__init__(*args, **kwargs)
-
-        # Validate that model only contains at most one SortableForeignKey
-        sortable_foreign_keys = []
-        for field in self._meta.fields:
-            if isinstance(field, SortableForeignKey):
-                sortable_foreign_keys.append(field)
-        if len(sortable_foreign_keys) > 1:
-            raise MultipleSortableForeignKeyException(
-                u'%s may only have one SortableForeignKey' % self)
-
-    def save(self, *args, **kwargs):
-        if not self.id:
-            try:
-                self.order = self.__class__.objects.aggregate(
-                    models.Max('order'))['order__max'] + 1
-            except (TypeError, IndexError):
-                pass
-
-        super(Sortable, self).save(*args, **kwargs)
 
