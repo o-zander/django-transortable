@@ -30,6 +30,10 @@ from .manager import FALLBACK_LANGUAGES
 from .utils import get_cached_translation, get_language_name, get_is_sortable, get_translation
 
 
+
+
+
+
 class TranslatableModelAdminMixin(object):
     query_language_key = 'language'
 
@@ -449,9 +453,9 @@ class TransortableAdmin(ModelAdmin, TranslatableModelAdminMixin):
         })
 
         for klass in self.inlines:
-            if issubclass(klass, (TransortableTabularInline, TransortableGenericTabularInline)):
+            if issubclass(klass, (TransortableTabularInline, TransortableGenericTabularInline, SortableTabularInline)):
                 self.has_sortable_tabular_inlines = True
-            if issubclass(klass, (TransortableStackedInline, TransortableGenericStackedInline)):
+            if issubclass(klass, (TransortableStackedInline, TransortableGenericStackedInline, SortableStackedInline)):
                 self.has_sortable_stacked_inlines = True
 
         if self.has_sortable_tabular_inlines or self.has_sortable_stacked_inlines:
@@ -648,3 +652,9 @@ class TransortableGenericTabularInline(TransortableInlineModelAdmin, GenericTabu
 class TransortableGenericStackedInline(TransortableInlineModelAdmin, GenericStackedInline):
     """Custom template that enables sorting for stacked inlines"""
     template = 'admin/transortable/edit_inline/stacked.html'
+
+try:
+    from adminsortable.admin import SortableStackedInline, SortableTabularInline
+except ImportError:
+    SortableStackedInline = TransortableStackedInline
+    SortableTabularInline = TransortableTabularInline
