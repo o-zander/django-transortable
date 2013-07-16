@@ -3,13 +3,13 @@ try:
     from django.views.generic.edit import UpdateView
 except ImportError:
     from cbv.views.edit import UpdateView
-from admin import TranslatableModelAdminMixin
-from forms import translatable_modelform_factory, TranslatableModelForm
-from utils import collect_context_modifiers
+from .admin import TranslatableModelAdminMixin
+from .forms import translatable_modelform_factory, TranslatableModelForm
+from .utils import collect_context_modifiers
+
 
 class TranslatableBaseView(UpdateView, TranslatableModelAdminMixin):
     form_class = TranslatableModelForm
-
 
     def filter_kwargs(self):
         """
@@ -19,7 +19,7 @@ class TranslatableBaseView(UpdateView, TranslatableModelAdminMixin):
         Syntax:
         - {'model_attr': 'url_block_name'}
         """
-        if self.kwargs.has_key("slug"):
+        if 'slug' in self.kwargs:
             return {self.slug_field: self.kwargs["slug"]}
         return {'pk': self.kwargs['object_id']}
 
@@ -65,11 +65,13 @@ class TranslatableBaseView(UpdateView, TranslatableModelAdminMixin):
         context.update(collect_context_modifiers(self, extra_kwargs=kwargs))
         return context
 
+
 class TranslatableCreateView(TranslatableBaseView, TranslatableModelAdminMixin):
     """
     Untested, use with caution - or write tests if you see this :-)
     """
     pass
+
 
 class TranslatableUpdateView(TranslatableBaseView, TranslatableModelAdminMixin):
     """

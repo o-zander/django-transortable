@@ -1,8 +1,10 @@
+from django.conf import settings
 from django.db.models.fields import FieldDoesNotExist
-from django.utils.translation import get_language
-from hvad.exceptions import WrongManager
-from django.db.models.loading import get_models
 from django.db.models.fields.related import RelatedObject
+from django.db.models.loading import get_models
+from django.utils.translation import get_language
+
+from .exceptions import WrongManager
 
 
 def combine(trans, klass):
@@ -34,7 +36,8 @@ def get_translation(instance, language_code=None):
 
 
 def get_translation_aware_manager(model):
-    from nani.manager import TranslationAwareManager
+    from .manager import TranslationAwareManager
+
     manager = TranslationAwareManager()
     manager.model = model
     return manager
@@ -45,9 +48,10 @@ class SmartGetFieldByName(object):
     Get field by name from a shared model or raise a smart exception to help the
     developer.
     """
+
     def __init__(self, real):
         self.real = real
-    
+
     def __call__(self, meta, name):
         assert not isinstance(self.real, SmartGetFieldByName)
         try:
@@ -84,8 +88,8 @@ def collect_context_modifiers(instance, include=None, exclude=None, extra_kwargs
 
     for thing in dir(instance):
         if (thing.startswith('context_modifier_') or thing in include) and \
-            not thing in exclude:
-            context.update(getattr(instance, thing, lambda x:x)(**extra_kwargs))
+                not thing in exclude:
+            context.update(getattr(instance, thing, lambda x: x)(**extra_kwargs))
     return context
 
 
@@ -93,4 +97,8 @@ def get_is_sortable(objects):
     if len(objects) > 1:
         return True
     return False
+
+
+def get_language_name(language_code):
+    return dict(settings.LANGUAGES).get(language_code, language_code)
 

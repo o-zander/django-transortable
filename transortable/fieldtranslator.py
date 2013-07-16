@@ -4,7 +4,6 @@ TRANSLATIONS = 1
 TRANSLATED = 2
 NORMAL = 3
 
-
 MODEL_INFO = {}
 
 
@@ -13,6 +12,7 @@ def _build_model_info(model):
     Builds the model information dictinary for get_model_info
     """
     from nani.models import BaseTranslationModel, TranslatableModel
+
     info = {}
     if issubclass(model, BaseTranslationModel):
         info['type'] = TRANSLATIONS
@@ -30,6 +30,7 @@ def _build_model_info(model):
         info['translated'].remove('id')
     return info
 
+
 def get_model_info(model):
     """
     Returns a dictionary with 'translated' and 'shared' as keys, and a list of
@@ -40,6 +41,7 @@ def get_model_info(model):
         MODEL_INFO[model] = _build_model_info(model)
     return MODEL_INFO[model]
 
+
 def _get_model_from_field(starting_model, fieldname):
     # TODO: m2m handling
     field, model, direct, _ = starting_model._meta.get_field_by_name(fieldname)
@@ -49,6 +51,7 @@ def _get_model_from_field(starting_model, fieldname):
         return field.rel.to
     else:
         return field.model
+
 
 def translate(querykey, starting_model):
     """
@@ -101,7 +104,7 @@ def translate(querykey, starting_model):
                     language_joins.append('%s__language_code' % path)
                 translated_bits.append('master')
                 translated_bits.append(bit)
-        # do we really want to get the next model? Is there a next model?
+            # do we really want to get the next model? Is there a next model?
         if index < max_index:
             next = bits[index + 1]
             if next not in QUERY_TERMS:

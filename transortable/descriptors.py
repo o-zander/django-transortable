@@ -1,6 +1,9 @@
-from hvad.utils import get_translation
+from .utils import get_translation
 
-class NULL:pass
+
+class NULL:
+    pass
+
 
 class BaseDescriptor(object):
     """

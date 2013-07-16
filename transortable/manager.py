@@ -1,8 +1,7 @@
 from collections import defaultdict
 from django.conf import settings
 from django.db import models, transaction, IntegrityError
-from django.db.models.query import (QuerySet, ValuesQuerySet, DateQuerySet, 
-    CHUNK_SIZE)
+from django.db.models.query import QuerySet, ValuesQuerySet, DateQuerySet, CHUNK_SIZE
 from django.db.models.query_utils import Q
 from django.utils.translation import get_language
 from hvad.fieldtranslator import translate
@@ -14,7 +13,8 @@ import sys
 logger = logging.getLogger(__name__)
 
 # maybe there should be an extra settings for this
-FALLBACK_LANGUAGES = [ code for code, name in settings.LANGUAGES ]
+FALLBACK_LANGUAGES = [code for code, name in settings.LANGUAGES]
+
 
 class FieldTranslator(dict):
     """
@@ -633,11 +633,11 @@ class TranslationManager(models.Manager):
 #===============================================================================
 
 class FallbackQueryset(QuerySet):
-    '''
+    """
     Queryset that tries to load a translated version using fallbacks on a per
     instance basis.
     BEWARE: creates a lot of queries!
-    '''
+    """
     def __init__(self, *args, **kwargs):
         self._translation_fallbacks = None
         super(FallbackQueryset, self).__init__(*args, **kwargs)

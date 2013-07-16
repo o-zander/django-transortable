@@ -1,8 +1,8 @@
 from django.core.exceptions import FieldError
 from django.forms.forms import get_declared_fields
 from django.forms.formsets import formset_factory
-from django.forms.models import (ModelForm, ModelFormMetaclass, ModelFormOptions, 
-    fields_for_model, model_to_dict, save_instance, BaseInlineFormSet, BaseModelFormSet)
+from django.forms.models import (ModelForm, ModelFormMetaclass, ModelFormOptions,
+                                 fields_for_model, model_to_dict, save_instance, BaseInlineFormSet, BaseModelFormSet)
 from django.forms.util import ErrorList
 from django.forms.widgets import media_property
 from django.utils.translation import get_language
@@ -12,7 +12,7 @@ from hvad.utils import get_cached_translation, get_translation, combine
 
 class TranslatableModelFormMetaclass(ModelFormMetaclass):
     def __new__(cls, name, bases, attrs):
-        
+
         """
         Django 1.3 fix, that removes all Meta.fields and Meta.exclude
         fieldnames that are in the translatable model. This ensures
@@ -33,14 +33,14 @@ class TranslatableModelFormMetaclass(ModelFormMetaclass):
             if getattr(meta, "exclude", False):
                 exclude = meta.exclude
                 meta.exclude = []
-        # End 1.3 fix
-        
+            # End 1.3 fix
+
         super_new = super(TranslatableModelFormMetaclass, cls).__new__
-        
+
         formfield_callback = attrs.pop('formfield_callback', None)
         declared_fields = get_declared_fields(bases, attrs, False)
         new_class = super_new(cls, name, bases, attrs)
-        
+
         # Start 1.3 fix
         if fields:
             new_class.Meta.fields = fields
@@ -48,11 +48,12 @@ class TranslatableModelFormMetaclass(ModelFormMetaclass):
             new_class.Meta.exclude = exclude
         if fieldsets:
             new_class.Meta.fieldsets = fieldsets
-        # End 1.3 fix
+            # End 1.3 fix
 
         if not getattr(new_class, "Meta", None):
             class Meta:
                 exclude = ['language_code']
+
             new_class.Meta = Meta
         elif not getattr(new_class.Meta, 'exclude', None):
             new_class.Meta.exclude = ['language_code']
@@ -70,30 +71,30 @@ class TranslatableModelFormMetaclass(ModelFormMetaclass):
                     "Only TranslatableModel subclasses may use TranslatableModelForm"
                 )
             mopts = opts.model._meta
-            
+
             shared_fields = mopts.get_all_field_names()
-            
+
             # split exclude and include fieldnames into shared and translated
             sfieldnames = [field for field in opts.fields or [] if field in shared_fields]
             tfieldnames = [field for field in opts.fields or [] if field not in shared_fields]
             sexclude = [field for field in opts.exclude or [] if field in shared_fields]
             texclude = [field for field in opts.exclude or [] if field not in shared_fields]
-            
+
             # required by fields_for_model
-            if not sfieldnames :
+            if not sfieldnames:
                 sfieldnames = None if not fields else []
             if not tfieldnames:
                 tfieldnames = None if not fields else []
-            
+
             # If a model is defined, extract form fields from it.
             sfields = fields_for_model(opts.model, sfieldnames, sexclude,
                                        opts.widgets, formfield_callback)
             tfields = fields_for_model(mopts.translations_model, tfieldnames,
                                        texclude, opts.widgets, formfield_callback)
-            
+
             fields = sfields
             fields.update(tfields)
-            
+
             # make sure opts.fields doesn't specify an invalid field
             none_model_fields = [k for k, v in fields.iteritems() if not v]
             missing_fields = set(none_model_fields) - \
@@ -103,15 +104,15 @@ class TranslatableModelFormMetaclass(ModelFormMetaclass):
                 message = message % (', '.join(missing_fields),
                                      opts.model.__name__)
                 raise FieldError(message)
-            # Override default model fields with any custom declared ones
+                # Override default model fields with any custom declared ones
             # (plus, include all the other declared fields).
             fields.update(declared_fields)
-            
+
             if new_class._meta.exclude:
                 new_class._meta.exclude = list(new_class._meta.exclude)
             else:
                 new_class._meta.exclude = []
-                
+
             for field in (mopts.translations_accessor, 'master'):
                 if not field in new_class._meta.exclude:
                     new_class._meta.exclude.append(field)
@@ -146,9 +147,9 @@ class TranslatableModelForm(ModelForm):
             object_data.update(initial)
         initial = object_data
         super(TranslatableModelForm, self).__init__(data, files, auto_id,
-                                                     prefix, object_data,
-                                                     error_class, label_suffix,
-                                                     empty_permitted, instance)
+                                                    prefix, object_data,
+                                                    error_class, label_suffix,
+                                                    empty_permitted, instance)
 
     def save(self, commit=True):
         if self.instance.pk is None:
@@ -175,7 +176,7 @@ class TranslatableModelForm(ModelForm):
         trans = save_instance(self, trans, self._meta.fields, fail_message,
                               commit, construct=True)
         return combine(trans, self.Meta.model)
-        
+
     def _post_clean(self):
         if self.instance.pk:
             try:
@@ -186,7 +187,6 @@ class TranslatableModelForm(ModelForm):
                 language_code = self.cleaned_data.get('language_code', get_language())
                 self.instance = self.instance.translate(language_code)
         return super(TranslatableModelForm, self)._post_clean()
-
 
 
 class CleanMixin(object):
@@ -232,25 +232,27 @@ def translatable_modelform_factory(language, model, form=TranslatableModelForm,
     clean_mixin = LanguageAwareCleanMixin(language)
     return type(class_name, (clean_mixin, form,), form_class_attrs)
 
+
 def translatable_modelformset_factory(language, model, form=TranslatableModelForm, formfield_callback=None,
-                         formset=BaseModelFormSet,
-                         extra=1, can_delete=False, can_order=False,
-                         max_num=None, fields=None, exclude=None):
+                                      formset=BaseModelFormSet,
+                                      extra=1, can_delete=False, can_order=False,
+                                      max_num=None, fields=None, exclude=None):
     """
     Returns a FormSet class for the given Django model class.
     """
     form = translatable_modelform_factory(language, model, form=form, fields=fields, exclude=exclude,
-                             formfield_callback=formfield_callback)
+                                          formfield_callback=formfield_callback)
     FormSet = formset_factory(form, formset, extra=extra, max_num=max_num,
                               can_order=can_order, can_delete=can_delete)
     FormSet.model = model
     return FormSet
 
+
 def translatable_inlineformset_factory(language, parent_model, model, form=TranslatableModelForm,
-                          formset=BaseInlineFormSet, fk_name=None,
-                          fields=None, exclude=None,
-                          extra=3, can_order=False, can_delete=True, max_num=None,
-                          formfield_callback=None):
+                                       formset=BaseInlineFormSet, fk_name=None,
+                                       fields=None, exclude=None,
+                                       extra=3, can_order=False, can_delete=True, max_num=None,
+                                       formfield_callback=None):
     """
     Returns an ``InlineFormSet`` for the given kwargs.
 
@@ -258,6 +260,7 @@ def translatable_inlineformset_factory(language, parent_model, model, form=Trans
     to ``parent_model``.
     """
     from django.forms.models import _get_foreign_key
+
     fk = _get_foreign_key(parent_model, model, fk_name=fk_name)
     # enforce a max_num=1 when the foreign key to the parent model is unique.
     if fk.unique:
