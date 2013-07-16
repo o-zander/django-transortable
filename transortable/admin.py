@@ -83,7 +83,9 @@ class TranslatableModelAdminMixin(object):
 
 class TransortableAdmin(ModelAdmin, TranslatableModelAdminMixin):
     form = TranslatableModelForm
-    ordering = ('order', 'id')
+
+    sortable = True
+    translatable = True
 
     change_form_template = 'admin/transortable/change_form.html'
     deletion_not_allowed_template = 'admin/transortable/deletion_not_allowed.html'
@@ -95,6 +97,11 @@ class TransortableAdmin(ModelAdmin, TranslatableModelAdminMixin):
 
     change_form_template_extends = 'admin/change_form.html'
     change_list_template_extends = 'admin/change_list.html'
+
+    def __init__(self, *args, **kwargs):
+        super(TransortableAdmin, self).__init__(*args, **kwargs)
+        if self.sortable:
+            self.ordering = ('order', 'id')
 
     def _get_sortable_foreign_key(self):
         sortable_foreign_key = None
