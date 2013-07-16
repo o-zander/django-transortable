@@ -6,19 +6,26 @@ from django.forms.models import (ModelForm, ModelFormMetaclass, ModelFormOptions
 from django.forms.util import ErrorList
 from django.forms.widgets import media_property
 from django.utils.translation import get_language
-from hvad.models import TranslatableModel
-from hvad.utils import get_cached_translation, get_translation, combine
+
+from .models import TransortableModel
+from .utils import get_cached_translation, get_translation, combine
+
+try:
+    from hvad.models import TranslatableModel
+except ImportError:
+    TranslatableModel = TransortableModel
 
 
 class TranslatableModelFormMetaclass(ModelFormMetaclass):
     def __new__(cls, name, bases, attrs):
-
         """
         Django 1.3 fix, that removes all Meta.fields and Meta.exclude
         fieldnames that are in the translatable model. This ensures
         that the superclass' init method doesnt throw a validation
         error
         """
+
+        # Start 1.3 fix
         fields = []
         exclude = []
         fieldsets = []
@@ -33,7 +40,7 @@ class TranslatableModelFormMetaclass(ModelFormMetaclass):
             if getattr(meta, "exclude", False):
                 exclude = meta.exclude
                 meta.exclude = []
-            # End 1.3 fix
+        # End 1.3 fix
 
         super_new = super(TranslatableModelFormMetaclass, cls).__new__
 
@@ -48,7 +55,7 @@ class TranslatableModelFormMetaclass(ModelFormMetaclass):
             new_class.Meta.exclude = exclude
         if fieldsets:
             new_class.Meta.fieldsets = fieldsets
-            # End 1.3 fix
+        # End 1.3 fix
 
         if not getattr(new_class, "Meta", None):
             class Meta:
@@ -66,7 +73,7 @@ class TranslatableModelFormMetaclass(ModelFormMetaclass):
         opts = new_class._meta = ModelFormOptions(getattr(new_class, 'Meta', attrs.get('Meta', None)))
         if opts.model:
             # bail out if a wrong model uses this form class
-            if not issubclass(opts.model, TranslatableModel):
+            if not issubclass(opts.model, (TranslatableModel, TransortableModel)):
                 raise TypeError(
                     "Only TranslatableModel subclasses may use TranslatableModelForm"
                 )
@@ -127,9 +134,8 @@ class TranslatableModelFormMetaclass(ModelFormMetaclass):
 class TranslatableModelForm(ModelForm):
     __metaclass__ = TranslatableModelFormMetaclass
 
-    def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
-                 initial=None, error_class=ErrorList, label_suffix=':',
-                 empty_permitted=False, instance=None):
+    def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None, initial=None, error_class=ErrorList,
+                 label_suffix=':', empty_permitted=False, instance=None):
         opts = self._meta
         model_opts = opts.model._meta
         object_data = {}
@@ -146,10 +152,8 @@ class TranslatableModelForm(ModelForm):
         if initial is not None:
             object_data.update(initial)
         initial = object_data
-        super(TranslatableModelForm, self).__init__(data, files, auto_id,
-                                                    prefix, object_data,
-                                                    error_class, label_suffix,
-                                                    empty_permitted, instance)
+        super(TranslatableModelForm, self).__init__(data, files, auto_id, prefix, object_data, error_class,
+                                                    label_suffix, empty_permitted, instance)
 
     def save(self, commit=True):
         if self.instance.pk is None:
@@ -200,8 +204,7 @@ def LanguageAwareCleanMixin(language):
     return type('BoundCleanMixin', (CleanMixin,), {'language': language})
 
 
-def translatable_modelform_factory(language, model, form=TranslatableModelForm,
-                                   fields=None, exclude=None,
+def translatable_modelform_factory(language, model, form=TranslatableModelForm, fields=None, exclude=None,
                                    formfield_callback=None):
     # Create the inner Meta class. FIXME: ideally, we should be able to
     # construct a ModelForm without creating and passing in a temporary

@@ -1,14 +1,16 @@
+import django
+import logging
+import sys
 from collections import defaultdict
+
 from django.conf import settings
 from django.db import models, transaction, IntegrityError
 from django.db.models.query import QuerySet, ValuesQuerySet, DateQuerySet, CHUNK_SIZE
 from django.db.models.query_utils import Q
 from django.utils.translation import get_language
-from hvad.fieldtranslator import translate
-from hvad.utils import combine
-import django
-import logging
-import sys
+
+from .fieldtranslator import translate
+from .utils import combine
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +272,6 @@ class TranslationQueryset(QuerySet):
         # Get the translated instance
         found = False
         qs = self
-        
         
         if 'language_code' in newkwargs:
             language_code = newkwargs.pop('language_code')
