@@ -262,7 +262,7 @@ class TransortableAdmin(ModelAdmin, TranslatableModelAdminMixin):
         object_tools block to take people to the view to change the sorting.
         """
 
-        if get_is_sortable(self.queryset(request)):
+        if self.sortable and get_is_sortable(self.queryset(request)):
             self.change_list_template = self.sortable_change_list_with_sort_link_template
             self.is_sortable = True
 
