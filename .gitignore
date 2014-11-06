@@ -1,8 +1,11 @@
+# Python
 *.log
 *.pot
 *.pyc
 
-
 # IDE
 *.iml
 /.idea
+
+# Virtualenv
+/env
