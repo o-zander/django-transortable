@@ -1,2 +1,0 @@
-class WrongManager(Exception):
-    pass

@@ -1,31 +1,9 @@
-{% extends change_form_template_extends %}
+{% extends base_template %}
 {% load i18n admin_modify static %}
 
-{% block extrahead %}
-    {{ block.super }}
-    {% url 'admin:jsi18n' as jsi18nurl %}
-
-    {% if has_sortable_tabular_inlines or has_sortable_stacked_inlines %}
-        {% include sortable_javascript_includes_template with inlines=True %}
-    {% endif %}
-    {% if has_sortable_tabular_inlines %}
-        <script type="text/javascript" src="{% static 'adminsortable/js/admin.sortable.tabular.inlines.js' %}"></script>
-    {% endif %}
-    {% if has_sortable_stacked_inlines %}
-        <script type="text/javascript" src="{% static 'adminsortable/js/admin.sortable.stacked.inlines.js' %}"></script>
-    {% endif %}
-    {% if has_sortable_stacked_inlines %}
-        <script type="text/javascript" src="{% static 'adminsortable/js/jquery.effects.core.js' %}"></script>
-    {% endif %}
-{% endblock %}
-
-{% block extrastyle %}
-    {{ block.super }}
-    {% if has_sortable_tabular_inlines or has_sortable_stacked_inlines %}
-        <link rel="stylesheet" type="text/css" href="{% static 'adminsortable/css/admin.sortable.inline.css' %}" />
-    {% endif %}
+{% block extrahead %} {{ block.super }} {% url 'admin:jsi18n' as jsi18nurl %}
     <style type="text/css">
-        .nani-language-tabs span {
+        .hvad-language-tabs span, .nani-language-tabs span {
             display: inline-block;
             padding: 5px 15px;
             border: 1px solid #ccc;
@@ -35,25 +13,45 @@
             top: 1px;
             font-weight: bold;
         }
-        .nani-language-tabs span.current {
+        .hvad-language-tabs span.current, .nani-language-tabs span.current {
             border-bottom: 1px solid #fff;
         }
-        .nani-language-tabs span.empty {
+        .hvad-language-tabs span.empty, .nani-language-tabs span.empty {
             opacity: 0.7;
             font-weight: normal;
         }
-        .nani-language-tabs a.deletelink {
+        .hvad-language-tabs a.deletelink, .nani-language-tabs a.deletelink {
             right: -17px;
             bottom: 4px;
             position: relative;
         }
     </style>
+
+    {% if has_sortable_tabular_inlines or has_sortable_stacked_inlines %}
+        <script type="text/javascript" src="{% static 'adminsortable/js/jquery-ui-django-admin.min.js' %}"></script>
+        <script type="text/javascript" src="{% static 'adminsortable/js/jquery.django-csrf.js' %}"></script>
+    {% endif %}
+
+    {% if has_sortable_tabular_inlines %}
+        <script type="text/javascript" src="{% static 'adminsortable/js/admin.sortable.tabular.inlines.js' %}"></script>
+    {% endif %}
+
+    {% if has_sortable_stacked_inlines %}
+        <script type="text/javascript" src="{% static 'adminsortable/js/admin.sortable.stacked.inlines.js' %}"></script>
+    {% endif %}
 {% endblock %}
 
-{% block object-tools %}
+{% block extrastyle %}
     {{ block.super }}
-    <div class="nani-language-tabs">
-        {% for url,name,code,status in language_tabs %}
+
+    {% if has_sortable_tabular_inlines or has_sortable_stacked_inlines %}
+        <link rel="stylesheet" type="text/css" href="{% static 'adminsortable/css/admin.sortable.inline.css' %}" />
+    {% endif %}
+{% endblock %}
+
+{% block object-tools %} {{ block.super }}
+    <div class="hvad-language-tabs nani-language-tabs">
+        {% for url, name, code, status in language_tabs %}
             {% if status == 'current' %}
                 <input type="hidden" class="language_button selected" name="{{ code }}" />
                 <span class="current">{{ name }}{% if current_is_translated and allow_deletion %}<a class="deletelink" href="./delete-translation/{{ code }}/" title="{% trans 'Delete Translation' %}">&nbsp;</a>{% endif %}</span>
@@ -62,4 +60,8 @@
             {% endif %}
         {% endfor %}
     </div>
+{% endblock %}
+
+{% block after_related_objects %} {{ block.super }}
+    <input type="hidden" id="localized_save_before_reorder_message" value="{% trans 'There are unsaved changes on this page. Please save your changes before reordering.' %}" />
 {% endblock %}
