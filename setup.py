@@ -24,7 +24,7 @@ setup(
     platforms=['OS Independent'],
     classifiers=CLASSIFIERS,
     install_requires=[
-        'Django>=1.6,<1.8',
+        'Django>=1.6,<1.9',
         'django-admin-sortable>=1.7.7',
         'django-hvad>=0.5.1'
     ],
